@@ -1,4 +1,36 @@
-# Get public ngrok endpoint
+name: "EnigMano Windows 11 Deployment"
+
+on:
+  workflow_dispatch:
+    inputs:
+      INSTANCE:
+        description: "Instance number to deploy (e.g., 1, 2, 3...)"
+        required: true
+        default: "1"
+
+jobs:
+  deploy-enigmano:
+    runs-on: windows-2025
+    timeout-minutes: 360
+
+    env:
+      INSTANCE_ID: ${{ github.event.inputs.INSTANCE }}
+      NGROK: ${{ secrets.NGROK_TOKEN }}  # You can store your ngrok token in GitHub Secrets
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup ngrok
+        shell: pwsh
+        run: |
+          Write-Host "Starting ngrok..."
+          Start-Process -NoNewWindow -FilePath "ngrok.exe" -ArgumentList "tcp --authtoken $env:NGROK 3389" 
+          Write-Host "Ngrok started."
+
+      - name: Get Ngrok RDP Endpoint
+        shell: pwsh
+        run: |
           $retry = 0
           $tcpUrl = ""
           while ($retry -lt 10) {
