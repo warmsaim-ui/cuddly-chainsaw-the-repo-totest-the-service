@@ -73,12 +73,3 @@ jobs:
         Write-Host "Username          : runneradmin"
         Write-Host "Password          : P@ssw0rd!"
         Write-Host "==============================================="
-
-    - name: Keep alive
-      run: |
-        Write-Host "Workflow will now wait indefinitely to keep session alive..."
-        while ($true) {
-          Write-Output "Keeping the workflow alive..."
-          Start-Sleep -Seconds 300
-        }
-      continue-on-error: true
