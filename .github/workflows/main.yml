@@ -41,13 +41,12 @@ jobs:
         Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
         if (!(Get-LocalUser -Name "runneradmin")) { throw "Failed to create user" }
 
-    - name: Create ngrok tunnel to remote desktop
+    - name: Start ngrok tunnel and log RDP info
       run: |
-        .\ngrok.exe tcp 3389
-        if ($LASTEXITCODE -ne 0) { throw "Failed to create ngrok tunnel" }
+        # Start ngrok in background
+        Start-Process -NoNewWindow -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389"
+        Start-Sleep -Seconds 5  # wait a bit for tunnel to initialize
 
-    - name: Log ngrok tunnel URL
-      run: |
         # Get public ngrok endpoint
         $retry = 0
         $tcpUrl = ""
@@ -73,3 +72,4 @@ jobs:
         Write-Host "Username          : runneradmin"
         Write-Host "Password          : P@ssw0rd!"
         Write-Host "==============================================="
+        Write-Host "ARCHITECT : MUDASIR-YT"
