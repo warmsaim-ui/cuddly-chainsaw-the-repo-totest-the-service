@@ -15,33 +15,86 @@ jobs:
 
     env:
       INSTANCE_ID: ${{ github.event.inputs.INSTANCE }}
-      NGROK: ${{ secrets.NGROK_TOKEN }}  # You can store your ngrok token in GitHub Secrets
+      NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+      REPO: ${{ github.repository }}
+      WORKFLOW_FILE: "enigmano-Win-11.yml"
+      DEPLOYMENT_ID: ${{ github.run_id }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Setup ngrok
+      - name: Deployment Parameters
         shell: pwsh
         run: |
-          Write-Host "Starting ngrok..."
-          Start-Process -NoNewWindow -FilePath "ngrok.exe" -ArgumentList "tcp --authtoken $env:NGROK 3389" 
-          Write-Host "Ngrok started."
+          $prevInstance = [int]$env:INSTANCE_ID - 1
+          Write-Host "==============================================="
+          Write-Host "EnigMano Instance     : $env:INSTANCE_ID"
+          Write-Host "Previous Instance     : $prevInstance"
+          Write-Host "GitHub Repository     : $env:REPO"
+          Write-Host "Deployment Workflow   : $env:WORKFLOW_FILE"
+          Write-Host "Deployment ID         : $env:DEPLOYMENT_ID"
+          Write-Host "==============================================="
 
-      - name: Get Ngrok RDP Endpoint
+      - name: Validate Ngrok Secret
         shell: pwsh
         run: |
+          if (-not $env:NGROK_AUTH_TOKEN) {
+            Write-Error "Missing GitHub Secret: NGROK_AUTH_TOKEN"
+            exit 1
+          }
+          Write-Host "All required secrets validated successfully"
+
+      - name: Download EnigMano-instance.ps1
+        shell: pwsh
+        run: |
+          $url = "https://gitlab.com/Shahzaib-YT/enigmano-windows-11-with-sound/-/raw/main/EnigMano-Instance.ps1"
+          Write-Host "Downloading EnigMano-Instance.ps1..."
+          Invoke-WebRequest -Uri $url -OutFile "EnigMano-Instance.ps1" -UseBasicParsing
+          if (!(Test-Path "./EnigMano-Instance.ps1")) {
+            Write-Error "Failed to download EnigMano-Instance.ps1"
+            exit 1
+          }
+          Write-Host "EnigMano-Instance.ps1 downloaded successfully"
+
+      - name: Start EnigMano Instance Script in background
+        shell: pwsh
+        run: |
+          Write-Host "Starting EnigMano-Instance.ps1 in background..."
+          Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `".\EnigMano-Instance.ps1`" $env:INSTANCE_ID" -NoNewWindow
+
+      - name: Setup RDP & Start ngrok
+        shell: pwsh
+        run: |
+          Write-Host "Enabling Remote Desktop..."
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+
+          Write-Host "Creating Admin user..."
+          $password = ConvertTo-SecureString "P@ssw0rd!" -AsPlainText -Force
+          if (-not (Get-LocalUser -Name "runneradmin" -ErrorAction SilentlyContinue)) {
+            New-LocalUser -Name "runneradmin" -Password $password -FullName "runneradmin" -Description "Custom RDP User"
+          }
+          Add-LocalGroupMember -Group "Administrators" -Member "runneradmin"
+
+          Write-Host "Downloading ngrok..."
+          Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+          Expand-Archive ngrok.zip -DestinationPath ngrok
+
+          Write-Host "Authenticating ngrok..."
+          ngrok\ngrok.exe authtoken $env:NGROK_AUTH_TOKEN
+
+          Write-Host "Starting ngrok TCP tunnel..."
+          Start-Process -NoNewWindow -FilePath "ngrok\ngrok.exe" -ArgumentList "tcp 3389" -PassThru
+          Start-Sleep -Seconds 5
+
+          # Get public ngrok endpoint
           $retry = 0
           $tcpUrl = ""
           while ($retry -lt 10) {
             try {
               $tunnelStatus = Invoke-RestMethod http://localhost:4040/api/tunnels -ErrorAction SilentlyContinue
               if ($tunnelStatus.tunnels) {
-                $tunnel = $tunnelStatus.tunnels | Where-Object { $_.proto -eq "tcp" } | Select-Object -ExpandProperty public_url
-                if ($tunnel) {
-                  $tcpUrl = $tunnel
-                  break
-                }
+                $tcpUrl = $tunnelStatus.tunnels | Where-Object { $_.proto -eq "tcp" } | Select-Object -ExpandProperty public_url
+                if ($tcpUrl) { break }
               }
             } catch { }
             Start-Sleep -Seconds 2
@@ -67,4 +120,4 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "EnigMano Instance $env:INSTANCE_ID deployment finished."
-          Write-Host "Powered by: SHAHZAIB-YT"
+          Write-Host "Powered by: MUDASIR-YT"
