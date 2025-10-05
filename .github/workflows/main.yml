@@ -1,0 +1,38 @@
+# Get public ngrok endpoint
+          $retry = 0
+          $tcpUrl = ""
+          while ($retry -lt 10) {
+            try {
+              $tunnelStatus = Invoke-RestMethod http://localhost:4040/api/tunnels -ErrorAction SilentlyContinue
+              if ($tunnelStatus.tunnels) {
+                $tunnel = $tunnelStatus.tunnels | Where-Object { $_.proto -eq "tcp" } | Select-Object -ExpandProperty public_url
+                if ($tunnel) {
+                  $tcpUrl = $tunnel
+                  break
+                }
+              }
+            } catch { }
+            Start-Sleep -Seconds 2
+            $retry++
+          }
+
+          if (-not $tcpUrl) {
+            throw "Could not get ngrok endpoint"
+          }
+
+          $rdpAddress = $tcpUrl -replace '^tcp://',''
+          Write-Host "==============================================="
+          Write-Host "Ngrok RDP Address : $rdpAddress"
+          Write-Host "Username          : runneradmin"
+          Write-Host "Password          : P@ssw0rd!"
+          Write-Host "==============================================="
+
+          Write-Host "Workflow will now wait indefinitely to keep session alive..."
+          while ($true) { Start-Sleep -Seconds 300 }
+
+      - name: Final Status
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "EnigMano Instance $env:INSTANCE_ID deployment finished."
+          Write-Host "Powered by: SHAHZAIB-YT"
