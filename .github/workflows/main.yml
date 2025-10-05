@@ -68,13 +68,6 @@ jobs:
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
 
-          Write-Host "Creating Admin user..."
-          $password = ConvertTo-SecureString "P@ssw0rd!" -AsPlainText -Force
-          if (-not (Get-LocalUser -Name "runneradmin" -ErrorAction SilentlyContinue)) {
-            New-LocalUser -Name "runneradmin" -Password $password -FullName "runneradmin" -Description "Custom RDP User"
-          }
-          Add-LocalGroupMember -Group "Administrators" -Member "runneradmin"
-
           Write-Host "Downloading ngrok..."
           Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
           Expand-Archive ngrok.zip -DestinationPath ngrok
@@ -121,3 +114,4 @@ jobs:
         run: |
           Write-Host "EnigMano Instance $env:INSTANCE_ID deployment finished."
           Write-Host "Powered by: MUDASIR-YT"
+          Write-Host "ARCHITECT : MUDASIR-YT"
